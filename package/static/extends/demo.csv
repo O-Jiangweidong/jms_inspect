@@ -1,0 +1,6 @@
+机器名,机器类型,IP地址,SSH端口号,登录用户名,登录密码
+JumpServer-Core(Beijing),JumpServer,10.1.13.214,22,root,Calong@2015
+JumpServer-MySQL(left),MySQL,10.1.13.218,22,root,Calong@2015
+JumpServer-MySQL(right),MySQL,10.1.13.173,22,root,Calong@2015
+JumpServer-Redis(Beijing),Redis,10.1.13.214,22,root,Calong@2015
+local-mac,Other,192.168.0.197,22,test,Password

@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# custom
+output/
+requirements/Python-3.8.6.tar.xz
+.*
+test/
