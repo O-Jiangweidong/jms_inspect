@@ -24,11 +24,8 @@ BASE_PATH = os.path.abspath(os.path.dirname(__file__))
 
 class JumpServerInspector(object):
     def __init__(self):
-        self._task_title = 'JumpServer 堡垒机巡检报告'
         self._table_print = TablePrint()
         self._machine_info_list = []
-        self._abnormal_machine_list = []
-        self._invalid_machine_info_list = []
         self._mysql_client = None
         self._report_type = 'html'
         self._machine_config_path = os.path.join(BASE_PATH, 'package', 'static', 'extends', 'demo.csv')
@@ -204,7 +201,6 @@ class JumpServerInspector(object):
             logger.error(err)
             return False
 
-        # TODO 这里检查配置项中是否缺少指定参数
         self.table_pretty_output()
         answer = input('是否继续执行，本地任务只会执行有效资产(默认为 yes): ')
         if answer.lower() not in ['y', 'yes', '']:
@@ -328,7 +324,7 @@ class JumpServerInspector(object):
         opts = []
         short_options = 'h'
         long_options = [
-            'help', 'jms-config=', 'report-type=',
+            'help', 'report-type=',
             'inspect-config=', 'machine-template='
         ]
         try:
