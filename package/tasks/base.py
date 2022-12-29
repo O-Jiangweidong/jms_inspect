@@ -8,9 +8,18 @@ from package.utils.log import logger
 class TaskType(object):
     GENERATOR = 'GENERATOR'
     JUMPSERVER = 'JUMPSERVER'
+    VIRTUAL = 'VIRTUAL'
     MYSQL = 'MYSQL'
     REDIS = 'REDIS'
     OTHER = 'OTHER'
+
+
+class TaskResponse(object):
+    pass
+
+
+class TaskResponseError(TaskResponse):
+    pass
 
 
 class BaseTask(object, metaclass=abc.ABCMeta):
@@ -24,7 +33,9 @@ class BaseTask(object, metaclass=abc.ABCMeta):
     def __init__(self):
         self._ssh_client = None
         self.abnormal_number = 0
-        self.task_result = []  # [(result, is_alert)]
+        self.jms_config = None
+        self.script_config = None
+        self.task_result = {}
 
     def __str__(self):
         return self.NAME
@@ -49,14 +60,20 @@ class BaseTask(object, metaclass=abc.ABCMeta):
     def set_do_params(self, param_name, param_value):
         setattr(self, param_name, param_value)
 
-    @abc.abstractmethod
     def do(self):
         """
-        重写此方法
-        执行完任务之后，要把任务结果返回
+        任务钩子函数，会获取指定前缀的任务自动执行
         :return: task_result
         """
-        pass
+        for f in dir(self):
+            f_func = getattr(self, f)
+            if f.startswith('_task') and callable(f_func):
+                try:
+                    f_func()
+                except Exception as e:
+                    logger.warning(e)
+                    raise e
+        return self.task_result
 
 
 class TaskExecutor(object):
@@ -93,13 +110,6 @@ class TaskExecutor(object):
         )
         self._ssh_client = ssh_client
 
-    def get_abnormal_task(self):
-        return self._abnormal_task
-
-    def set_abnormal_task(self, task, number):
-        task_number = self._abnormal_task.get(task, 0)
-        self._abnormal_task[task] = task_number + number
-
     def execute(self):
         """
         任务执行入口函数
@@ -113,16 +123,16 @@ class TaskExecutor(object):
                 line = '+' * 66
                 logger.empty(line, br=False)
                 logger.info('开始执行 -> %s' % str(task))
-                resp = task.do()
-
-                self.set_abnormal_task(task, task.abnormal_number)
-
+                result = task.do()
                 logger.info('执行结束 -> %s' % str(task))
                 logger.empty(line, br=False)
             except Exception as err:
                 err_msg = '%s 执行任务 %s 出错, 错误: %s' % (self, task, err)
                 logger.error(err_msg)
-                resp = [err_msg]
-            task_result[task.NAME] = resp
+                raise err
+            task_result.update(result)
         self.ssh_client.close()
         return task_result
+
+
+TError = TaskResponseError()

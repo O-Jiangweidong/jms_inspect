@@ -1,16 +1,3 @@
-# 通用类型任务配置参数
-# ---------------------------------
-# 各个机器和执行脚本的差值，单位(秒)
-TIME_LAG = 60
-
-
-# MYSQL 类型任务配置参数
-# ---------------------------------
-# MySQL 数据表大小阈值，单位(兆)
-MYSQL_TABLE_SIZE = 100
-# MySQL 数据记录阈值, 单位(万)
-MYSQL_TABLE_RECORD = 1000
-
 # JMS 信息, 目前用到的配置信息
 # ---------------------------------
 JMS_VOLUME_DIR = /opt/jumpserver
@@ -21,6 +8,6 @@ JMS_DB_PASSWORD = Calong@2015
 JMS_DB_NAME = jumpserver
 # JMS_REDIS_HOST = 10.1.13.219
 # JMS_REDIS_PORT = 6379
-# JMS_REDIS_PASSWORD = 6379
+# JMS_REDIS_PASSWORD = password
 
 

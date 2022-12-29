@@ -44,9 +44,3 @@ class JmsLionTask(BaseTask):
                         '使用 lion 组件的在线会话数为 %s ' \
                         '(如果堡垒机长时间无人使用且此值过大，请检查是否存在遗留录像)' % (var, online_count)
             self.task_result.append((item_resp, False))
-
-    def do(self):
-        if self._ssh_client is None:
-            raise Exception('任务执行前需要先注册一个SSH Client')
-        self._get_lion_replay_file_size()
-        return self.task_result

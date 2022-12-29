@@ -7,6 +7,7 @@ import sys
 import pymysql
 
 from importlib import import_module
+from datetime import datetime
 
 from package.tasks.base import TaskExecutor, TaskType
 from package.utils.log import logger
@@ -15,7 +16,7 @@ from package.utils.tools import (
     is_machine_connect, get_current_datetime_display, get_current_timestamp
 )
 from package.utils.config import Config
-from package.utils.pdf.pdf import PDFPrinter
+from package.utils.html import HtmlPrinter
 
 
 BASE_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -29,7 +30,7 @@ class JumpServerInspector(object):
         self._abnormal_machine_list = []
         self._invalid_machine_info_list = []
         self._mysql_client = None
-        self._report_type = 'pdf'
+        self._report_type = 'html'
         self._machine_config_path = os.path.join(BASE_PATH, 'package', 'static', 'extends', 'demo.csv')
         self._script_config = os.path.join(BASE_PATH, 'package', 'static', 'config', 'config.txt')
         self.jms_config = None
@@ -64,7 +65,7 @@ class JumpServerInspector(object):
         logger.empty(script_document, br=False)
 
     def _set_report_type(self, report_type):
-        support_report_type = ('pdf', 'excel', 'all')
+        support_report_type = ('html', 'excel', 'all')
         if report_type in support_report_type:
             self._report_type = report_type
         else:
@@ -114,6 +115,7 @@ class JumpServerInspector(object):
         """
         logger.debug('正在检查模板文件中机器是否合法...')
         ip_re = re.compile(r'((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))')
+        unique_set, multiple_name = set(), None
         try:
             with open(self._machine_config_path, encoding='gbk')as f:
                 reader = csv.reader(f)
@@ -122,7 +124,8 @@ class JumpServerInspector(object):
                 for row in reader:
                     ip, port = row[2], row[3]
                     machine_info = {
-                        'name': row[0], 'type': row[1], 'ssh_ip': ip, 'ssh_port': port,
+                        'name': row[0], 'type': row[1].upper(),
+                        'ssh_ip': ip, 'ssh_port': port,
                         'ssh_username': row[4], 'ssh_password': row[5]
                     }
 
@@ -133,6 +136,9 @@ class JumpServerInspector(object):
                     else:
                         machine_info['valid'] = False
                     self._machine_info_list.append(machine_info)
+                    if row[0] in unique_set:
+                        multiple_name = row[0]
+                    unique_set.add(row[0])
         except Exception as err:
             err_msg = '机器配置填写有误: %s' % err
             return False, err_msg
@@ -141,6 +147,9 @@ class JumpServerInspector(object):
             err_msg = '没有获取到机器信息，请检查此文件内容: %s' % self._machine_config_path
             return False, err_msg
 
+        if multiple_name:
+            err_msg = '待巡检机器名称重复，名称为: %s' % multiple_name
+            return False, err_msg
         return True, None
 
     @staticmethod
@@ -162,6 +171,9 @@ class JumpServerInspector(object):
         for task_class in tasks_class:
             task_type = getattr(task_class, 'TYPE')
             if task_type != TaskType.GENERATOR \
+                    and task_type != need_task_type:
+                continue
+            if task_type == TaskType.VIRTUAL \
                     and task_type != need_task_type:
                 continue
             task = task_class()
@@ -192,112 +204,77 @@ class JumpServerInspector(object):
             logger.error(err)
             return False
 
+        # TODO 这里检查配置项中是否缺少指定参数
         self.table_pretty_output()
         answer = input('是否继续执行，本地任务只会执行有效资产(默认为 yes): ')
         if answer.lower() not in ['y', 'yes', '']:
             return False
         return True
 
+    def _get_do_machines(self):
+        do_machines = self._machine_info_list
+        for m in self._machine_info_list:
+            if m['type'] == 'MYSQL':
+                do_machines.append({
+                    'name': '虚拟任务', 'type': 'VIRTUAL', 'valid': True,
+                    'ssh_ip': m['ssh_ip'], 'ssh_port': m['ssh_port'],
+                    'ssh_username': m['ssh_username'],
+                    'ssh_password': m['ssh_password']
+                })
+                break
+        return do_machines
+
     def do(self):
-        result_summary = {}
-        for machine in self._machine_info_list:
+        result_summary, v_info, machines = {}, {}, []
+        for machine in self._get_do_machines():
             if machine.get('valid'):
-                tasks = self.get_all_task(machine.get('type', '').upper())
+                tasks = self.get_all_task(machine['type'])
                 task_executor = TaskExecutor(**machine)
                 task_executor.add_tasks(tasks)
                 result_dict = task_executor.execute()
 
-                abnormal_info = ''
-                for name, number in task_executor.get_abnormal_task().items():
-                    if number < 1:
-                        continue
-                    abnormal_info += '任务 [%s]，有 %d 处异常\r\n' % (name, number)
-                if abnormal_info:
-                    machine['abnormal'] = abnormal_info
-                    self._abnormal_machine_list.append(machine)
-
-                result_key = '%s-%s' % (machine['name'], machine['type'])
-                result_summary[result_key] = result_dict
+                if machine['type'] == TaskType.VIRTUAL:
+                    result_summary['v'] = result_dict
+                else:
+                    result_dict['machine_type'] = machine['type']
+                    result_dict['machine_name'] = machine['name']
+                    machines.append(result_dict)
+            result_summary['machines'] = machines
         return result_summary
 
-    def _to_pdf(self, filename: str, content: dict, **kwargs):
+    @staticmethod
+    def _to_html(filename: str, content: dict, **kwargs):
+        filename += '.html'
+        html_printer = HtmlPrinter('jumpserver_report.html')
+        html_printer.save(filename, content)
+        logger.info('文件生成成功，文件路径: %s' % filename)
+
+    @staticmethod
+    def _to_pdf(filename: str, content: dict, **kwargs):
         filename += '.pdf'
-        content_list = []
-        pdf_printer = PDFPrinter()
+        logger.warning('此格式报告还未支持')
+        # logger.info('文件生成成功，文件路径: %s' % filename)
 
-        # 添加首页文本
-        pdf_printer.set_title(self._task_title)
-        pdf_printer.set_title(
-            '报告日期: %s' % get_current_datetime_display(format_file=False)
-        )
-
-        # 机器配置配置详情
-        config_table_title = pdf_printer.draw_h3('配置中获取的机器详情')
-        content_list.append(config_table_title)
-        config_table_header = [
-            ('机器名', '机器类型', 'IP', '端口', 'SSH 用户名', '有效'),
-        ]
-        for machine in self._machine_info_list:
-            m = (
-                machine['name'], machine['type'], machine['ssh_ip'],
-                machine['ssh_port'], machine['ssh_username'],
-                '是' if machine['valid'] else '否'
-            )
-            config_table_header.append(m)
-        table = pdf_printer.draw_table(*config_table_header)
-        content_list.append(table)
-
-        # 各个机器任务执行结果摘要
-        abnormal_task_table_title = pdf_printer.draw_h3('任务异常结果摘要 (背景已标红)', color='red')
-        content_list.append(abnormal_task_table_title)
-
-        table_abnormal_task_table_header = [
-            ('机器名', '机器类型', '异常数据'),
-        ]
-        for machine in self._abnormal_machine_list:
-            m = (machine['name'], machine['type'], machine['abnormal'])
-            table_abnormal_task_table_header.append(m)
-        table = pdf_printer.draw_table(*table_abnormal_task_table_header)
-        content_list.append(table)
-
-        content_list.append(pdf_printer.get_new_page())
-        for machine, result in content.items():
-            blank_line = pdf_printer.draw_h2('')
-            machine_title = pdf_printer.draw_h2(machine)
-            content_list.extend([blank_line, machine_title])
-            for t, cnt in result.items():
-                t = pdf_printer.draw_h3(t)
-                cnt_list = []
-                cnt.sort(key=lambda x: x[1], reverse=True)
-                for c in cnt:
-                    # c => (result, is_alert)
-                    if isinstance(c[0], (list, tuple)):
-                        c = pdf_printer.draw_table(*c[0])
-                    else:
-                        c = pdf_printer.draw_body(c[0], c[1])
-                    cnt_list.append(c)
-                content_list.extend([t, *cnt_list])
-            # 每个机器的任务都重新开辟新页面
-            content_list.append(pdf_printer.get_new_page())
-        pdf_printer.save(filename, content_list)
-        logger.info('文件生成成功，文件路径: %s' % filename)
-
-    def _to_excel(self, filename: str, content: dict, **kwargs):
+    @staticmethod
+    def _to_excel(filename: str, content: dict, **kwargs):
         filename += '.xlsx'
-        logger.info('文件生成成功，文件路径: %s' % filename)
+        logger.warning('此格式报告还未支持')
+        # logger.info('文件生成成功，文件路径: %s' % filename)
 
     def _to_all_type(self, filename: str, content: dict, **kwargs):
         self._to_pdf(filename, content, **kwargs)
+        self._to_html(filename, content, **kwargs)
         self._to_excel(filename, content, **kwargs)
 
     def store_file(self, result_summary, file_type):
         file_type_handler = {
             'pdf': self._to_pdf,
+            'html': self._to_html,
             'excel': self._to_excel,
             'all': self._to_all_type,
         }
 
-        func = file_type_handler.get(file_type, self._to_pdf)
+        func = file_type_handler.get(file_type, self._to_html)
 
         output_path = os.path.join(BASE_PATH, 'output')
         filename = get_current_datetime_display()
@@ -305,6 +282,43 @@ class JumpServerInspector(object):
         os.makedirs(output_path, exist_ok=True)
 
         func(filename=result_file_name, content=result_summary)
+
+    def __get_machine_info(self):
+        machine_info, jms_count, mysql_count, redis_count, other_count = [], 0, 0, 0, 0
+        for m in self._machine_info_list:
+            if m['type'] == TaskType.VIRTUAL:
+                continue
+            if m['type'] == TaskType.JUMPSERVER:
+                jms_count += 1
+            elif m['type'] == TaskType.MYSQL:
+                mysql_count += 1
+            elif m['type'] == TaskType.REDIS:
+                redis_count += 1
+            else:
+                other_count += 1
+
+            machine = {
+                'machine_name': m['name'], 'machine_type': m['type'],
+                'machine_ip': m['ssh_ip'], 'machine_port': m['ssh_port'],
+                'machine_username': m['ssh_username'],
+                'machine_valid': m['valid']
+            }
+            machine_info.append(machine)
+        total_count = sum([jms_count, mysql_count, redis_count, other_count])
+        return machine_info, jms_count, mysql_count, redis_count, other_count, total_count
+
+    def _set_task_global_info(self, result_summary: dict):
+        # 设置报告时间
+        current_date = datetime.now().date()
+        result_summary['inspect_datetime'] = current_date
+        # 设置巡检机器信息
+        machines, *count_info = self.__get_machine_info()
+        global_info = {
+            'machines': machines, 'jms_count': count_info[0],
+            'mysql_count': count_info[1], 'redis_count': count_info[2],
+            'other_count': count_info[3], 'total_count': count_info[4]
+        }
+        result_summary['gb_info'] = global_info
 
     def filter_options(self, options):
         """
@@ -366,12 +380,14 @@ class JumpServerInspector(object):
             ok = self.pre_check()
             if ok:
                 result_summary = self.do()
+                self._set_task_global_info(result_summary)
                 self.store_file(result_summary, self._report_type)
             else:
                 self.exit_program(show=True)
 
         except Exception as err:
             logger.error('执行任务出错，错误: %s' % err)
+            raise err
         except KeyboardInterrupt:
             logger.info('用户主动取消任务')
 

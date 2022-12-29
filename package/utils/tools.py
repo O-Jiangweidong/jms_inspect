@@ -45,3 +45,14 @@ def get_current_datetime_display(format_file=True):
 
 def get_current_date_display():
     return datetime.now().strftime('%Y-%m-%d')
+
+
+def boolean(e):
+    if isinstance(e, str):
+        try:
+            e = float(e)
+        except ValueError:
+            pass
+    return bool(e)
+
+

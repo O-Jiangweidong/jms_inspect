@@ -1,7 +1,7 @@
 import redis
 
 from package.utils.log import logger
-from .base import BaseTask, TaskType
+from .base import BaseTask, TaskType, TError
 
 
 __all__ = ['JmsRedisTask']
@@ -13,8 +13,6 @@ class JmsRedisTask(BaseTask):
 
     def __init__(self):
         super().__init__()
-        self.jms_config = None
-        self.script_config = None
         self._redis_client = None
 
     @staticmethod
@@ -36,37 +34,48 @@ class JmsRedisTask(BaseTask):
             self._redis_client = self.get_redis_client()
         return self._redis_client
 
-    @staticmethod
-    def filter_useful_info(redis_info):
-        used_memory = redis_info.get('used_memory', 0)
-        used_memory_human = redis_info.get('used_memory_human', 0)
-        used_memory_rss_human = redis_info.get('used_memory_rss_human', 0)
-        total_system_memory = redis_info.get('total_system_memory', 1)
-        used_percent = int(used_memory) / int(total_system_memory) * 100
-        used_percent_pretty = '{:.3f}%'.format(used_percent)
-        redis_version = redis_info.get('redis_version', '未知')
-        used_memory_peak = redis_info.get('used_memory_peak_human', '未知')
-        connected = redis_info.get('connected_clients', 0)
-        table = [
-            ('Redis 版本', '使用内存', '系统分配内存', '内存占用率', '连接数', '内存消耗峰值'),
-            (redis_version, used_memory_human, used_memory_rss_human,
-             used_percent_pretty, connected, used_memory_peak),
-        ]
+    def set_service_info(self, info):
+        self.task_result['redis_version'] = info.get('redis_version', TError)
+        self.task_result['redis_mode'] = info.get('redis_mode', TError)
+        self.task_result['redis_port'] = info.get('tcp_port', TError)
+        self.task_result['redis_uptime'] = info.get('uptime_in_days', TError)
 
-        return table
+    def set_client_info(self, info):
+        self.task_result['redis_connect'] = info.get('connected_clients', TError)
+        self.task_result['redis_cluster_connect'] = info.get('cluster_connections', TError)
+        self.task_result['redis_max_connect'] = info.get('maxclients', TError)
+        self.task_result['redis_blocked_connect'] = info.get('blocked_clients', TError)
 
-    def get_redis_info(self):
+    def set_mem_info(self, info):
+        self.task_result['used_memory_human'] = info.get('used_memory_human', TError)
+        self.task_result['used_memory_rss_human'] = info.get('used_memory_rss_human', TError)
+        self.task_result['used_memory_peak_human'] = info.get('used_memory_peak_human', TError)
+        self.task_result['used_memory_lua_human'] = info.get('used_memory_lua_human', TError)
+        self.task_result['maxmemory_human'] = info.get('maxmemory_human', TError)
+        self.task_result['maxmemory_policy'] = info.get('maxmemory_policy', TError)
+
+    def set_statistics_info(self, info):
+        self.task_result['total_connections_received'] = info.get('total_connections_received', TError)
+        self.task_result['total_commands_processed'] = info.get('total_commands_processed', TError)
+        self.task_result['instantaneous_ops_per_sec'] = info.get('instantaneous_ops_per_sec', TError)
+        self.task_result['total_net_input_bytes'] = info.get('total_net_input_bytes', TError)
+        self.task_result['total_net_output_bytes'] = info.get('total_net_output_bytes', TError)
+        self.task_result['rejected_connections'] = info.get('rejected_connections', TError)
+        self.task_result['expired_keys'] = info.get('expired_keys', TError)
+        self.task_result['evicted_keys'] = info.get('evicted_keys', TError)
+        self.task_result['keyspace_hits'] = info.get('keyspace_hits', TError)
+        self.task_result['keyspace_misses'] = info.get('keyspace_misses', TError)
+        self.task_result['pubsub_channels'] = info.get('pubsub_channels', TError)
+        self.task_result['pubsub_patterns'] = info.get('pubsub_patterns', TError)
+
+    def _task_get_redis_info(self):
         try:
             redis_info = self.redis_client.info()
         except Exception as error:
             logger.warning('%s:%s' % (self.NAME, error))
             redis_info = {}
-        resp = self.filter_useful_info(redis_info)
-        self.task_result.append((resp, False))
 
-    def do(self, **kwargs):
-        try:
-            self.get_redis_info()
-        except Exception as error:
-            self.task_result.append((error, True))
-        return self.task_result
+        self.set_service_info(redis_info)
+        self.set_client_info(redis_info)
+        self.set_mem_info(redis_info)
+        self.set_statistics_info(redis_info)
