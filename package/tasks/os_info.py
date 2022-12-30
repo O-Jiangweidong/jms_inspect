@@ -2,6 +2,7 @@ import re
 
 from .base import BaseTask, TaskType, TError
 from ..utils.tools import boolean
+from .. import const
 
 
 __all__ = ['OSInfoTask']
@@ -87,8 +88,7 @@ class OSInfoTask(BaseTask):
         command = "uptime"
         resp, ok = self.do_command(command)
         if not ok:
-            self.abnormal_number += 1
-            self.task_result.append((resp, True))
+            self.task_result['operating_time'] = TError
         else:
             find = os_pattern_obj.match(resp)
             if find:
@@ -197,6 +197,8 @@ class OSInfoTask(BaseTask):
             self.task_result['firewall_enable'] = TError
         else:
             self.task_result['firewall_enable'] = boolean(resp)
+            if not boolean(resp):
+                self.set_abnormal_event(const.FIREWALLD_STOP_ERROR, 'critical')
 
         # 是否开启RSyslog
         firewalld_command = 'systemctl status rsyslog | ' \
@@ -223,7 +225,7 @@ class OSInfoTask(BaseTask):
         # 过滤掉非数字类型元素
         ports = filter(lambda x: x.isdigit(), ports)
         # 转换数据类型并排序
-        ports = sorted(map(int, ports)) + ['99999']
+        ports = sorted(map(int, ports)) + [99999]
         finally_port = []
         start, end = '', ''
         for i in range(0, len(ports) - 1):
@@ -249,3 +251,13 @@ class OSInfoTask(BaseTask):
         else:
             ports = self.__get_port_tidy_display(resp)
             self.task_result['expose_port'] = ports
+
+    def _task_get_zombie_process(self):
+        command = "ps -e -o ppid,stat | grep Z| wc -l"
+        resp, ok = self.do_command(command)
+        if not ok:
+            self.task_result['exist_zombie'] = TError
+        else:
+            self.task_result['exist_zombie'] = boolean(resp)
+            if boolean(resp):
+                self.set_abnormal_event(const.ZOMBIE_EXIST_ERROR, 'normal')

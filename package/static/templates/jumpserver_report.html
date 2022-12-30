@@ -124,6 +124,7 @@
             max-width: 180px;
         }
         .v-table tr th {
+            width: 250px;
             max-width: 250px;
             min-width: 150px;
         }
@@ -200,6 +201,9 @@
             width: 95%;
             height:400px;
             margin: 0 auto;
+        }
+        .warning {
+            color: red;
         }
     </style>
     <script>
@@ -368,23 +372,22 @@ var zr={},Vr={};var Br=function(){function t(t,e,n){var i=this;this._sleepAfterS
             </div>
             <div style="text-align: left; margin: 0 5%">
                 <h3>1.2 运行概况</h3>
-                <h5>本次巡检发现高危异常<span style="color: red">3</span>个，一般异常<span style="color: orange">1</span>个，具体如下所示。</h5>
+                <h5>
+                    本次巡检发现以下异常点
+                </h5>
                 <table>
                     <tr>
                         <th>异常等级</th>
                         <th>异常节点</th>
                         <th>异常描述</th>
                     </tr>
-                    <tr>
-                        <td>{{ abnormal_level}}</td>
-                        <td>{{ abnormal_node }}</td>
-                        <td>{{ abnormal_describe }}</td>
+                    {% for a in abnormal %}
+                    <tr class="{%+ if a.level == 'critical' %}warning{% endif %}">
+                        <td>{{ a.level_display}}</td>
+                        <td>{{ a.node_name }}</td>
+                        <td>{{ a.desc }}</td>
                     </tr>
-                    <tr>
-                        <td>{{ abnormal_level}}</td>
-                        <td>{{ abnormal_node }}</td>
-                        <td>{{ abnormal_describe }}</td>
-                    </tr>
+                    {% endfor %}
                 </table>
                 <small class="tip">注：异常等级“严重”表示影响核心服务正常运行，“一般”表示当前不影响服务运转，未来长期可能会造严重影响。“轻微”表示此异常当前及未来不影响服务运行，只是潜在风险。</small>
             </div>
@@ -430,14 +433,6 @@ var zr={},Vr={};var Br=function(){function t(t,e,n){var i=this;this._sleepAfterS
                     <tr>
                         <th>IP</th>
                         <td>{{ m.machine_ip }}</td>
-                    </tr>
-                    <tr>
-                        <th>网卡名称</th>
-                        <td>{{ m.net_name }}</td>
-                    </tr>
-                    <tr>
-                        <th>MAC地址</th>
-                        <td>{{ m.mac_address }}</td>
                     </tr>
                     <tr>
                         <th>系统版本</th>

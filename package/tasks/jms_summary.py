@@ -148,7 +148,7 @@ class JmsSummaryTask(BaseTask):
             'last_3_month_upload_count': last_3_month_upload_count,
             'last_3_month_command_count': last_3_month_command_count,
             'last_3_month_danger_command_count': last_3_month_danger_command_count,
-            'last_3_month_max_session_duration': last_3_month_max_session_duration,
+            'last_3_month_max_session_duration': str(last_3_month_max_session_duration),
             'last_3_month_avg_session_duration': last_3_month_avg_session_duration,
             'last_3_month_ticket_count': last_3_month_ticket_count
         }

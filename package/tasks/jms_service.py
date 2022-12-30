@@ -22,7 +22,7 @@ class JmsServiceTask(BaseTask):
         volume_dir = self.jms_config.get('VOLUME_DIR', '/')
         replay_path = os.path.join(volume_dir, 'core', 'data', 'media', 'replay')
         # 总大小
-        command = 'df -h . --output=size'
+        command = "df -h . --output=size| awk '{if (NR > 1) {print $1}}'"
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['replay_total'] = TError
@@ -36,7 +36,7 @@ class JmsServiceTask(BaseTask):
         else:
             self.task_result['replay_used'] = resp
         # 未使用
-        command = 'df -h . --output=avail'
+        command = "df -h . --output=avail| awk '{if (NR > 1) {print $1}}'"
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['replay_unused'] = TError

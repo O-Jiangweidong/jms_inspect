@@ -221,13 +221,13 @@ class JumpServerInspector(object):
         return do_machines
 
     def do(self):
-        result_summary, v_info, machines = {}, {}, []
+        result_summary, v_info, machines, abnormal = {}, {}, [], []
         for machine in self._get_do_machines():
             if machine.get('valid'):
                 tasks = self.get_all_task(machine['type'])
                 task_executor = TaskExecutor(**machine)
                 task_executor.add_tasks(tasks)
-                result_dict = task_executor.execute()
+                result_dict, abnormal_result_list = task_executor.execute()
 
                 if machine['type'] == TaskType.VIRTUAL:
                     result_summary['v'] = result_dict
@@ -235,7 +235,12 @@ class JumpServerInspector(object):
                     result_dict['machine_type'] = machine['type']
                     result_dict['machine_name'] = machine['name']
                     machines.append(result_dict)
-            result_summary['machines'] = machines
+                    for i in abnormal_result_list:
+                        i['node_name'] = machine['name']
+                    abnormal.extend(abnormal_result_list)
+
+        result_summary['machines'] = machines
+        result_summary['abnormal'] = abnormal
         return result_summary
 
     @staticmethod

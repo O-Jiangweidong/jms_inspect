@@ -18,8 +18,9 @@ class TaskResponse(object):
     pass
 
 
-class TaskResponseError(TaskResponse):
-    pass
+class TaskResponseEmpty(TaskResponse):
+    def __str__(self):
+        return '空'
 
 
 class BaseTask(object, metaclass=abc.ABCMeta):
@@ -32,10 +33,10 @@ class BaseTask(object, metaclass=abc.ABCMeta):
 
     def __init__(self):
         self._ssh_client = None
-        self.abnormal_number = 0
         self.jms_config = None
         self.script_config = None
         self.task_result = {}
+        self.abnormal_result = []
 
     def __str__(self):
         return self.NAME
@@ -60,6 +61,16 @@ class BaseTask(object, metaclass=abc.ABCMeta):
     def set_do_params(self, param_name, param_value):
         setattr(self, param_name, param_value)
 
+    def set_abnormal_event(self, e_desc, e_level):
+        # e_level: critical, normal, slight
+        level_mapping = {
+            'critical': '严重', 'normal': '一般', 'slight': '轻微'
+        }
+        level_display = level_mapping.get(e_level, '未知')
+        self.abnormal_result.append({
+            'level': e_level, 'desc': e_desc, 'level_display': level_display
+        })
+
     def do(self):
         """
         任务钩子函数，会获取指定前缀的任务自动执行
@@ -73,7 +84,7 @@ class BaseTask(object, metaclass=abc.ABCMeta):
                 except Exception as e:
                     logger.warning(e)
                     raise e
-        return self.task_result
+        return self.task_result, self.abnormal_result
 
 
 class TaskExecutor(object):
@@ -116,6 +127,7 @@ class TaskExecutor(object):
         :return:
         """
         task_result = {}
+        task_abnormal_result = []
         self._task_list.sort(key=lambda x: getattr(x, 'PRIORITY', 0), reverse=True)
         for task in self._task_list:
             task.register(self.ssh_client)
@@ -123,7 +135,7 @@ class TaskExecutor(object):
                 line = '+' * 66
                 logger.empty(line, br=False)
                 logger.info('开始执行 -> %s' % str(task))
-                result = task.do()
+                result, abnormal_result = task.do()
                 logger.info('执行结束 -> %s' % str(task))
                 logger.empty(line, br=False)
             except Exception as err:
@@ -131,8 +143,9 @@ class TaskExecutor(object):
                 logger.error(err_msg)
                 raise err
             task_result.update(result)
+            task_abnormal_result.extend(abnormal_result)
         self.ssh_client.close()
-        return task_result
+        return task_result, task_abnormal_result
 
 
-TError = TaskResponseError()
+TError = TaskResponseEmpty()
