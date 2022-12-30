@@ -29,7 +29,7 @@ class JmsServiceTask(BaseTask):
         else:
             self.task_result['replay_total'] = resp
         # 已经使用
-        command = 'cd %s;du -sh' % replay_path
+        command = "cd %s;du -sh|awk '{print $1}'" % replay_path
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['replay_used'] = TError
@@ -49,7 +49,7 @@ class JmsServiceTask(BaseTask):
         volume_dir = self.jms_config.get('VOLUME_DIR', '/')
         # 获取Web日志大小
         web_log = os.path.join(volume_dir, 'nginx', 'data', 'logs')
-        command = 'cd %s;du -sh' % web_log
+        command = "cd %s;du -sh|awk '{print $1}'" % web_log
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['web_log_size'] = TError
@@ -57,7 +57,7 @@ class JmsServiceTask(BaseTask):
             self.task_result['web_log_size'] = resp
         # 获取Core日志大小
         core_log = os.path.join(volume_dir, 'core', 'logs')
-        command = 'cd %s;du -sh' % core_log
+        command = "cd %s;du -sh|awk '{print $1}'" % core_log
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['core_log_size'] = TError
@@ -65,7 +65,7 @@ class JmsServiceTask(BaseTask):
             self.task_result['core_log_size'] = resp
         # 获取Koko日志大小
         koko_path = os.path.join(volume_dir, 'koko', 'data', 'logs')
-        command = 'cd %s;du -sh' % koko_path
+        command = "cd %s;du -sh|awk '{print $1}'" % koko_path
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['koko_log_size'] = TError
@@ -73,7 +73,7 @@ class JmsServiceTask(BaseTask):
             self.task_result['koko_log_size'] = resp
         # 获取Lion日志大小
         lion_path = os.path.join(volume_dir, 'lion', 'data', 'logs')
-        command = 'cd %s;du -sh' % lion_path
+        command = "cd %s;du -sh|awk '{print $1}'" % lion_path
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['lion_log_size'] = TError
