@@ -70,14 +70,19 @@ class JmsMySQLTask(BaseTask):
         self.mysql_client.execute(sql)
         table_count = self.mysql_client.fetchone()[0]
 
+        # 获取当前事务数量
+        sql = "SELECT count(*) FROM information_schema.innodb_trx"
+        self.mysql_client.execute(sql)
+        transaction_count = self.mysql_client.fetchone()[0]
+
         info_dict = {
             'db_operating_time': uptime,
             'db_sql_mode': db_info.get('sql_mode'),
             'db_max_connect': db_info.get('max_connections'),
-            'Connections': db_info.get('max_connections'),
+            'db_current_connect': db_info.get('Threads_connected'),
             'db_qps': qps, 'db_tps': tps,
             'db_slow_query': db_info.get('slow_query_log'),
-            'db_current_transaction': db_info.get(''),
+            'db_current_transaction': transaction_count,
             'db_charset': db_info.get('character_set_database'),
             'db_sort_rule': db_info.get('collation_database'),
             'db_slave_io_running': db_slave_io_running,
