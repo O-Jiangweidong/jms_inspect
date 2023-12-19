@@ -1,0 +1,13 @@
+# JMS 信息, 目前用到的配置信息
+# ---------------------------------
+JMS_VOLUME_DIR = /opt/jumpserver
+JMS_DB_HOST = 10.1.13.219
+JMS_DB_PORT = 3306
+JMS_DB_USER = root
+JMS_DB_PASSWORD = Calong@2015
+JMS_DB_NAME = jumpserver
+# JMS_REDIS_HOST = 10.1.13.219
+# JMS_REDIS_PORT = 6379
+# JMS_REDIS_PASSWORD = password
+
+

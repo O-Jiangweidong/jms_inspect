@@ -33,7 +33,7 @@ class JumpServerInspector(object):
         self.jms_config = None
         self.script_config = None
 
-    def get_mysql_client(self):
+    def get_mysql_client(self, get_conn=False):
         host = self.jms_config.get('DB_HOST')
         port = self.jms_config.get('DB_PORT')
         user = self.jms_config.get('DB_USER')
@@ -43,6 +43,8 @@ class JumpServerInspector(object):
             host=host, port=int(port), user=user, password=password,
             database=database
         )
+        if get_conn:
+            return connect
         cur = connect.cursor()
         return cur
 
@@ -148,6 +150,23 @@ class JumpServerInspector(object):
             err_msg = '待巡检机器名称重复，名称为: %s' % multiple_name
             return False, err_msg
         return True, None
+        try:
+            connect.ping()
+        except Exception as err:
+            logger.error(err)
+            cur = None
+        else:
+            cur = connect.cursor()
+
+    def _check_tool_is_valid(self):
+        status, error = True, ''
+        try:
+            conn = self.get_mysql_client(get_conn=True)
+            conn.ping()
+        except Exception as err:
+            error = '连接数据库失败: %s' % err
+            status = False
+        return status, error
 
     @staticmethod
     def _get_tasks_class():
@@ -170,8 +189,8 @@ class JumpServerInspector(object):
             if task_type != TaskType.GENERATOR \
                     and task_type != need_task_type:
                 continue
-            if task_type == TaskType.VIRTUAL \
-                    and task_type != need_task_type:
+            if task_type == TaskType.GENERATOR \
+                    and need_task_type == TaskType.VIRTUAL:
                 continue
             task = task_class()
             do_params = task.get_do_params()
@@ -201,6 +220,11 @@ class JumpServerInspector(object):
             logger.error(err)
             return False
 
+        ok, err = self._check_tool_is_valid()
+        if not ok:
+            logger.error(err)
+            return False
+
         self.table_pretty_output()
         answer = input('是否继续执行，本地任务只会执行有效资产(默认为 yes): ')
         if answer.lower() not in ['y', 'yes', '']:
@@ -209,15 +233,9 @@ class JumpServerInspector(object):
 
     def _get_do_machines(self):
         do_machines = self._machine_info_list
-        for m in self._machine_info_list:
-            if m['type'] == 'MYSQL':
-                do_machines.append({
-                    'name': '虚拟任务', 'type': 'VIRTUAL', 'valid': True,
-                    'ssh_ip': m['ssh_ip'], 'ssh_port': m['ssh_port'],
-                    'ssh_username': m['ssh_username'],
-                    'ssh_password': m['ssh_password']
-                })
-                break
+        do_machines.append({
+            'name': '虚拟任务', 'type': TaskType.VIRTUAL, 'valid': True
+        })
         return do_machines
 
     def do(self):
@@ -248,7 +266,7 @@ class JumpServerInspector(object):
         filename += '.html'
         html_printer = HtmlPrinter('jumpserver_report.html')
         html_printer.save(filename, content)
-        logger.info('文件生成成功，文件路径: %s' % filename)
+        logger.info('巡检完成，请将此路径下的巡检文件发送给技术工程师: \r\n%s' % filename)
 
     @staticmethod
     def _to_pdf(filename: str, content: dict, **kwargs):
@@ -380,6 +398,7 @@ class JumpServerInspector(object):
             self.filter_options(sys.argv[1:])
             ok = self.pre_check()
             if ok:
+                logger.empty('巡检任务开始...')
                 result_summary = self.do()
                 self._set_task_global_info(result_summary)
                 self.store_file(result_summary, self._report_type)

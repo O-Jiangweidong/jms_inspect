@@ -58,6 +58,7 @@ class JmsSummaryTask(BaseTask):
         res = self.mysql_client.fetchone()
         max_login_count = '%s(%s)' % (res[1], res[0])
         # 最大单日访问资产数
+        # TODO 没数据记得处理下
         sql = "SELECT DATE(date_start) AS d, COUNT(*) AS num FROM terminal_session " \
               "GROUP BY d ORDER BY num DESC LIMIT 1"
         self.mysql_client.execute(sql)
@@ -117,6 +118,7 @@ class JmsSummaryTask(BaseTask):
               "FROM_UNIXTIME(timestamp) > DATE_SUB(CURDATE(), INTERVAL 3 MONTH)"
         self.mysql_client.execute(sql)
         last_3_month_danger_command_count = self.mysql_client.fetchone()[0]
+        # TODO 没数据记得处理
         # 近三月最大会话时长
         sql = "SELECT timediff(date_end, date_start) AS duration from terminal_session " \
               "WHERE date_start > DATE_SUB(CURDATE(), INTERVAL 3 MONTH) " \

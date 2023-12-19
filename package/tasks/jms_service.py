@@ -36,7 +36,7 @@ class JmsServiceTask(BaseTask):
         else:
             self.task_result['replay_used'] = resp
         # 未使用
-        command = "df -h . --output=avail| awk '{if (NR > 1) {print $1}}'"
+        command = "cd %s;df -h . --output=avail| awk '{if (NR > 1) {print $1}}'"
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['replay_unused'] = TError

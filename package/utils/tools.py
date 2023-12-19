@@ -53,6 +53,6 @@ def boolean(e):
             e = float(e)
         except ValueError:
             pass
-    return bool(e)
+    return '是' if bool(e) else '否'
 
 

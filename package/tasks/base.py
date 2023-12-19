@@ -130,21 +130,24 @@ class TaskExecutor(object):
         task_abnormal_result = []
         self._task_list.sort(key=lambda x: getattr(x, 'PRIORITY', 0), reverse=True)
         for task in self._task_list:
-            task.register(self.ssh_client)
+            if task.TYPE != TaskType.VIRTUAL:
+                task.register(self.ssh_client)
             try:
-                line = '+' * 66
-                logger.empty(line, br=False)
-                logger.info('开始执行 -> %s' % str(task))
+                machine_name = self.kwargs.get('name', '未知')
+                logger.info('> 开始执行任务(%s)-机器名(%s)' % (str(task), machine_name), br=False)
                 result, abnormal_result = task.do()
-                logger.info('执行结束 -> %s' % str(task))
-                logger.empty(line, br=False)
+                logger.info('> 执行结束 ', br=False)
+                # logger.empty('↑ ' * 30)
             except Exception as err:
                 err_msg = '%s 执行任务 %s 出错, 错误: %s' % (self, task, err)
                 logger.error(err_msg)
                 raise err
             task_result.update(result)
             task_abnormal_result.extend(abnormal_result)
-        self.ssh_client.close()
+        try:
+            self.ssh_client.close()
+        except Exception:
+            pass
         return task_result, task_abnormal_result
 
 
