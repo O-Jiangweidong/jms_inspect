@@ -20,13 +20,13 @@ def import_string(dotted_path):
             (module_path, class_name)) from err
 
 
-def is_machine_connect(ip, port):
+def is_machine_connect(ip, port, timeout=1):
     status = True
     sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sk.settimeout(1)
+    sk.settimeout(timeout)
     try:
         sk.connect((ip, port))
-    except Exception as error:
+    except Exception: # noqa
         status = False
     return status
 
@@ -54,5 +54,3 @@ def boolean(e):
         except ValueError:
             pass
     return '是' if bool(e) else '否'
-
-

@@ -39,8 +39,10 @@ class HtmlPrinter:
         env.filters['get_page'] = PageFilter().get_page
 
     def save(self, filepath, context):
+        save_path = '%s.html' % filepath
         res = self.template.render(context)
-        self._save_file(filepath, res)
+        self._save_file(save_path, res)
+        return save_path
 
     @staticmethod
     def _save_file(filepath, text):

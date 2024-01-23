@@ -1,3 +1,5 @@
+import datetime
+
 from .base import BaseTask, TaskType, TError
 
 
@@ -76,7 +78,7 @@ class JmsMySQLTask(BaseTask):
         transaction_count = self.mysql_client.fetchone()[0]
 
         info_dict = {
-            'db_operating_time': uptime,
+            'db_operating_time': str(datetime.timedelta(seconds=int(uptime))),
             'db_sql_mode': db_info.get('sql_mode'),
             'db_max_connect': db_info.get('max_connections'),
             'db_current_connect': db_info.get('Threads_connected'),

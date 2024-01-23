@@ -1,5 +1,5 @@
+import argparse
 import csv
-import getopt
 import os
 import re
 import sys
@@ -13,7 +13,7 @@ from package.tasks.base import TaskExecutor, TaskType
 from package.utils.log import logger
 from package.utils.tableprint import TablePrint
 from package.utils.tools import (
-    is_machine_connect, get_current_datetime_display, get_current_timestamp
+    is_machine_connect, get_current_datetime_display
 )
 from package.utils.config import Config
 from package.utils.html import HtmlPrinter
@@ -27,9 +27,10 @@ class JumpServerInspector(object):
         self._table_print = TablePrint()
         self._machine_info_list = []
         self._mysql_client = None
-        self._report_type = 'html'
+        self._report_type = ''
+        self._jms_config_path = '/opt/jumpserver/config/config.txt'
         self._machine_config_path = os.path.join(BASE_PATH, 'package', 'static', 'extends', 'demo.csv')
-        self._script_config = os.path.join(BASE_PATH, 'package', 'static', 'config', 'config.txt')
+        self._script_config_path = os.path.join(BASE_PATH, 'package', 'static', 'config', 'config.txt')
         self.jms_config = None
         self.script_config = None
 
@@ -45,8 +46,7 @@ class JumpServerInspector(object):
         )
         if get_conn:
             return connect
-        cur = connect.cursor()
-        return cur
+        return connect.cursor()
 
     @property
     def mysql_client(self):
@@ -54,49 +54,22 @@ class JumpServerInspector(object):
             self._mysql_client = self.get_mysql_client()
         return self._mysql_client
 
-    @property
-    def current_timestamp(self):
-        return get_current_timestamp()
-
-    def _view_script_document(self):
-        from package.const import SCRIPT_DOCUMENT
-        script_document = SCRIPT_DOCUMENT % (self._script_config, self._machine_config_path)
-        logger.empty(script_document, br=False)
-
-    def _set_report_type(self, report_type):
-        support_report_type = ('html', 'excel', 'all')
-        if report_type in support_report_type:
-            self._report_type = report_type
-        else:
-            return '报告类型%s有误，只能为 [%s]' % (report_type, '、'.join(support_report_type))
-
-    def _check_config(self):
+    def _check_script_and_jms_config(self):
         """
         检查堡垒机的配置文件路径
         检查脚本配置文件
         :return:
         """
 
-        if not os.path.exists(self._script_config):
-            err_msg = '请检查文件路径: [%s]，文件不存在。' % self._script_config
+        if not os.path.exists(self._jms_config_path):
+            err_msg = '请检查文件路径: [%s]，文件不存在。' % self._script_config_path
             return False, err_msg
 
         try:
-            self.jms_config = Config(self._script_config, config_prefix='JMS_')
-            self.script_config = Config(self._script_config)
+            self.jms_config = Config(self._jms_config_path)
+            self.script_config = Config(self._script_config_path)
         except ValueError as err:
             return False, str(err)
-
-        return True, None
-
-    def _get_machine_config_path(self):
-        """
-        获取待检查机器模板路径
-        :return:
-        """
-        if not os.path.exists(self._machine_config_path):
-            err_msg = '请检查文件路径: [%s]，文件不存在。' % self._machine_config_path
-            return False, err_msg
         return True, None
 
     def table_pretty_output(self):
@@ -107,14 +80,19 @@ class JumpServerInspector(object):
 
         self._table_print.show()
 
-    def _check_machine_config_is_valid(self):
+    def _check_machine_config(self):
         """
         检查用户输入的机器模板是否符合要求
         :return:
         """
+        if not os.path.exists(self._machine_config_path):
+            err_msg = '请检查文件路径: [%s]，文件不存在。' % self._machine_config_path
+            return False, err_msg
+
         logger.debug('正在检查模板文件中机器是否合法...')
         ip_re = re.compile(r'((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))')
         unique_set, multiple_name = set(), None
+        valid_machine = 0
         try:
             with open(self._machine_config_path, encoding='gbk')as f:
                 reader = csv.reader(f)
@@ -130,8 +108,9 @@ class JumpServerInspector(object):
 
                     if port.isdigit():
                         port = int(port)
-                    if ip_re.match(ip) and is_machine_connect(ip, port):
+                    if ip_re.match(ip) and is_machine_connect(ip, port, 3):
                         machine_info['valid'] = True
+                        valid_machine += 1
                     else:
                         machine_info['valid'] = False
                     self._machine_info_list.append(machine_info)
@@ -149,16 +128,13 @@ class JumpServerInspector(object):
         if multiple_name:
             err_msg = '待巡检机器名称重复，名称为: %s' % multiple_name
             return False, err_msg
+        if valid_machine < len(self._machine_info_list):
+            err_msg = '存在不可连接的机器，请检查此文件内容: %s' % self._machine_config_path
+            return True, err_msg
         return True, None
-        try:
-            connect.ping()
-        except Exception as err:
-            logger.error(err)
-            cur = None
-        else:
-            cur = connect.cursor()
 
     def _check_tool_is_valid(self):
+        logger.debug('正在检查数据库是否可连接...')
         status, error = True, ''
         try:
             conn = self.get_mysql_client(get_conn=True)
@@ -182,6 +158,7 @@ class JumpServerInspector(object):
         return task_modules
 
     def get_all_task(self, need_task_type):
+        api_version = self.jms_config.get('CURRENT_VERSION', 'v2')[:2]
         tasks_class = self._get_tasks_class()
         return_value = []
         for task_class in tasks_class:
@@ -193,6 +170,7 @@ class JumpServerInspector(object):
                     and need_task_type == TaskType.VIRTUAL:
                 continue
             task = task_class()
+            task.api_version = api_version
             do_params = task.get_do_params()
             for param in do_params:
                 task.set_do_params(param, getattr(self, param))
@@ -205,17 +183,7 @@ class JumpServerInspector(object):
         :return:
         """
         logger.debug('开始检查配置等相关信息...')
-        ok, err = self._check_config()
-        if not ok:
-            logger.error(err)
-            return False
-
-        ok, err = self._get_machine_config_path()
-        if not ok:
-            logger.error(err)
-            return False
-
-        ok, err = self._check_machine_config_is_valid()
+        ok, err = self._check_script_and_jms_config()
         if not ok:
             logger.error(err)
             return False
@@ -225,7 +193,12 @@ class JumpServerInspector(object):
             logger.error(err)
             return False
 
+        ok, err = self._check_machine_config()
+        if not ok:
+            logger.error(err)
+            return False
         self.table_pretty_output()
+
         answer = input('是否继续执行，本地任务只会执行有效资产(默认为 yes): ')
         if answer.lower() not in ['y', 'yes', '']:
             return False
@@ -239,7 +212,7 @@ class JumpServerInspector(object):
         return do_machines
 
     def do(self):
-        result_summary, v_info, machines, abnormal = {}, {}, [], []
+        result_summary, __, machines, abnormal = {}, {}, [], []
         for machine in self._get_do_machines():
             if machine.get('valid'):
                 tasks = self.get_all_task(machine['type'])
@@ -262,23 +235,18 @@ class JumpServerInspector(object):
         return result_summary
 
     @staticmethod
-    def _to_html(filename: str, content: dict, **kwargs):
-        filename += '.html'
-        html_printer = HtmlPrinter('jumpserver_report.html')
-        html_printer.save(filename, content)
-        logger.info('巡检完成，请将此路径下的巡检文件发送给技术工程师: \r\n%s' % filename)
+    def _to_html(filepath: str, content: dict, **kwargs):
+        html_printer = HtmlPrinter(template_name='jumpserver_report.html')
+        filepath = html_printer.save(filepath, content)
+        logger.info('巡检完成，请将此路径下的巡检文件发送给技术工程师: \r\n%s' % filepath)
 
     @staticmethod
     def _to_pdf(filename: str, content: dict, **kwargs):
-        filename += '.pdf'
-        logger.warning('此格式报告还未支持')
-        # logger.info('文件生成成功，文件路径: %s' % filename)
+        pass
 
     @staticmethod
     def _to_excel(filename: str, content: dict, **kwargs):
-        filename += '.xlsx'
-        logger.warning('此格式报告还未支持')
-        # logger.info('文件生成成功，文件路径: %s' % filename)
+        pass
 
     def _to_all_type(self, filename: str, content: dict, **kwargs):
         self._to_pdf(filename, content, **kwargs)
@@ -297,10 +265,10 @@ class JumpServerInspector(object):
 
         output_path = os.path.join(BASE_PATH, 'output')
         filename = get_current_datetime_display()
-        result_file_name = os.path.join(output_path, filename)
+        report_filepath = os.path.join(output_path, filename)
         os.makedirs(output_path, exist_ok=True)
 
-        func(filename=result_file_name, content=result_summary)
+        func(filepath=report_filepath, content=result_summary)
 
     def __get_machine_info(self):
         machine_info, jms_count, mysql_count, redis_count, other_count = [], 0, 0, 0, 0
@@ -339,45 +307,24 @@ class JumpServerInspector(object):
         }
         result_summary['gb_info'] = global_info
 
-    def filter_options(self, options):
-        """
-        :param options: 命令行接收用户输入的参数
-        :return: 参数
-        """
-        opts = []
-        short_options = 'h'
-        long_options = [
-            'help', 'report-type=',
-            'inspect-config=', 'machine-template='
-        ]
-        try:
-            # 短参数后加`:` 表示该参数后需要加参数
-            opts, _ = getopt.getopt(
-                options, short_options, long_options
-            )
-        except getopt.GetoptError:
-            self._view_script_document()
-            self.exit_program()
-        if not opts:
-            self._view_script_document()
-            self.exit_program()
-
-        for opt, arg in opts:
-            if opt in ('-h', '--help'):
-                self._view_script_document()
-                self.exit_program()
-            elif opt in ('--report-type',):
-                err = self._set_report_type(arg)
-                if err is not None:
-                    logger.error(err)
-                    self.exit_program()
-            elif opt in ('--inspect-config',):
-                self._script_config = arg
-            elif opt in ('--machine-template',):
-                self._machine_config_path = arg
-            else:
-                self._view_script_document()
-                self.exit_program()
+    def process_cmd_line_args(self):
+        """ 解析用户输入 """
+        parser = argparse.ArgumentParser(description='JumpServer 巡检脚本')
+        parser.add_argument(
+            '-tp', '--report-type', default='html', choices=['html'], help='生成的报告类型'
+        )
+        parser.add_argument(
+            '-jc', '--jumpserver-config',
+            help='堡垒机配置文件路径，默认 %s' % self._jms_config_path
+        )
+        parser.add_argument(
+            '-mt', '--machine-template', required=True,
+            help='待巡检机器配置文件路径(示例查看: %s)' % self._machine_config_path
+        )
+        args = parser.parse_args()
+        self._report_type = args.report_type
+        self._jms_config_path = args.jumpserver_config
+        self._machine_config_path = args.machine_template
 
     @staticmethod
     def exit_program(show=False):
@@ -395,7 +342,7 @@ class JumpServerInspector(object):
         :return:
         """
         try:
-            self.filter_options(sys.argv[1:])
+            self.process_cmd_line_args()
             ok = self.pre_check()
             if ok:
                 logger.empty('巡检任务开始...')
@@ -404,7 +351,6 @@ class JumpServerInspector(object):
                 self.store_file(result_summary, self._report_type)
             else:
                 self.exit_program(show=True)
-
         except Exception as err:
             logger.error('执行任务出错，错误: %s' % err)
             raise err

@@ -12,23 +12,23 @@ class LogPrinter(object):
         else:
             self._output.print(value)
 
-    def empty(self, value, br=True):
+    def empty(self, value, br=False):
         self.__print(value, br)
 
-    def debug(self, value, br=True):
+    def debug(self, value, br=False):
         value = '[DEBUG]: %s' % value
         self.__print(value, br)
 
-    def info(self, value, br=True):
+    def info(self, value, br=False):
         value = '[INFO]: %s' % value
         self.__print(value, br)
 
-    def warning(self, value, br=True):
+    def warning(self, value, br=False):
         value = '[WARNING]: %s' % value
         self.__print(value, br)
 
-    def error(self, value, br=True):
-        value = '\r\n[ERROR]: %s\r\n' % value
+    def error(self, value, br=False):
+        value = '[ERROR]: %s' % value
         self.__print(value, br)
 
 

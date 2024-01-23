@@ -829,9 +829,7 @@ var zr={},Vr={};var Br=function(){function t(t,e,n){var i=this;this._sleepAfterS
             <div style="text-align: left; margin: 0 5%">
                 <h3>2.1 运营巡检</h3>
                 <small>
-                    当前共有{{ v.organization_count }}个组织，{{ v.user_count }}个用户，{{ v.asset_count }}个资产(Windows类型
-                    {{ v.windows_asset_count }}个，Linux类型 {{ v.linux_asset_count }}个)，{{ v.online_session }}个在线会话。
-                    最大单日登录次数{{ v.max_login_count }}次，最大单日访问资产数{{ v.max_connect_asset_count }}次, 详细指标数据参见下表。
+                    当前共有 <strong>{{ v.organization_count }}</strong> 个组织，<strong>{{ v.user_count }}</strong> 个用户，<strong>{{ v.asset_count }}</strong> 个资产(前三: {{ v.asset_count_display }})，<strong>{{ v.online_session }}</strong> 个在线会话。最大单日登录次数 <strong>{{ v.max_login_count }}</strong> 次，最大单日访问资产数 <strong>{{ v.max_connect_asset_count }}</strong> 次, 详细指标数据参见下表。
                 </small>
                 <br>
                 <table class="v-table">
@@ -1039,12 +1037,12 @@ var zr={},Vr={};var Br=function(){function t(t,e,n){var i=this;this._sleepAfterS
             },
             legend: {
                 orient: 'orient',
-                top: '20%',
-                left: '5%'
+                left: 'right'
             },
             series: [{
                 type: 'pie',
-                radius: ['40%', '70%'],
+                radius: ['45%', '70%'],
+                center: ['35%', '50%'],
                 itemStyle: {
                     borderRadius: 10,
                     borderColor: '#fff',
