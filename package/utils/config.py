@@ -10,9 +10,10 @@ class Config(object):
         self.pre_check()
 
     def pre_check(self):
-        if not os.path.exists(self._config_path) or \
+        if self._config_path is None or \
+                not os.path.exists(self._config_path) or \
                 not os.path.isfile(self._config_path):
-            raise ValueError('配置文件错误: %s' % self._config_path)
+            self._config_mapping = {}
 
     def get_config_mapping(self):
         cf_mapping = {}

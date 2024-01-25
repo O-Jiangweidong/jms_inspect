@@ -30,7 +30,7 @@ class JumpServerInspector(object):
         self._report_type = ''
         self._jms_config_path = '/opt/jumpserver/config/config.txt'
         self._machine_config_path = os.path.join(BASE_PATH, 'package', 'static', 'extends', 'demo.csv')
-        self._script_config_path = os.path.join(BASE_PATH, 'package', 'static', 'config', 'config.txt')
+        self._script_config_path = None
         self.jms_config = None
         self.script_config = None
 
@@ -61,7 +61,7 @@ class JumpServerInspector(object):
         :return:
         """
 
-        if not os.path.exists(self._jms_config_path):
+        if self._script_config_path is not None and not os.path.exists(self._jms_config_path):
             err_msg = '请检查文件路径: [%s]，文件不存在。' % self._script_config_path
             return False, err_msg
 
@@ -265,7 +265,7 @@ class JumpServerInspector(object):
 
         output_path = os.path.join(BASE_PATH, 'output')
         filename = get_current_datetime_display()
-        report_filepath = os.path.join(output_path, filename)
+        report_filepath = os.path.join(output_path, 'JumpServer巡检报告-%s' % filename)
         os.makedirs(output_path, exist_ok=True)
 
         func(filepath=report_filepath, content=result_summary)
@@ -296,8 +296,7 @@ class JumpServerInspector(object):
 
     def _set_task_global_info(self, result_summary: dict):
         # 设置报告时间
-        current_date = datetime.now().date()
-        result_summary['inspect_datetime'] = current_date
+        result_summary['inspect_datetime'] = get_current_datetime_display(format_file=False)
         # 设置巡检机器信息
         machines, *count_info = self.__get_machine_info()
         global_info = {

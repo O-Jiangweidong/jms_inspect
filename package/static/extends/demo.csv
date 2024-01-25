@@ -1,3 +1,3 @@
 机器名,机器类型,IP地址,SSH端口号,登录用户名,登录密码
-JumpServer-Core,JumpServer,10.1.13.83,22,root,Calong@2015
-JumpServer-Redis,redis,10.1.13.83,22,root,Calong@2015
+JumpServer-Core,JumpServer,10.1.13.1,22,root,password
+JumpServer-Redis,redis,10.1.13.2,22,root,password

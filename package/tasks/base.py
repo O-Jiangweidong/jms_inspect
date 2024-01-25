@@ -4,6 +4,7 @@ import time
 import paramiko
 
 from package.utils.log import logger
+from .. import const
 
 
 class TaskType(object):
@@ -63,9 +64,8 @@ class BaseTask(object, metaclass=abc.ABCMeta):
         setattr(self, param_name, param_value)
 
     def set_abnormal_event(self, e_desc, e_level):
-        # e_level: critical, normal, slight
         level_mapping = {
-            'critical': '严重', 'normal': '一般', 'slight': '轻微'
+            const.CRITICAL: '严重', const.NORMAL: '一般', const.SLIGHT: '轻微'
         }
         level_display = level_mapping.get(e_level, '未知')
         self.abnormal_result.append({

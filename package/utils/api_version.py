@@ -28,6 +28,7 @@ def wraps(version):
         @functools.wraps(func)
         def substitution(obj, *args, **kwargs):
             method = _get_func_by_name(name, obj.api_version)
-            method(obj, *args, **kwargs)
+            return method(obj, *args, **kwargs)
 
+        return substitution
     return decor

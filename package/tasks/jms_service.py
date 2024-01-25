@@ -1,5 +1,6 @@
 import os
 
+from package.utils import api_version
 from .base import BaseTask, TaskType, TError
 
 
@@ -36,7 +37,7 @@ class JmsServiceTask(BaseTask):
         else:
             self.task_result['replay_used'] = resp
         # 未使用
-        command = "cd %s;df -h . --output=avail| awk '{if (NR > 1) {print $1}}'"
+        command = "cd %s;df -h . --output=avail| awk '{if (NR > 1) {print $1}}'" % replay_path
         resp, ok = self.do_command(command)
         if not ok:
             self.task_result['replay_unused'] = TError
@@ -44,6 +45,14 @@ class JmsServiceTask(BaseTask):
             self.task_result['replay_unused'] = resp
         # 录像路径
         self.task_result['replay_path'] = replay_path
+
+    @api_version.wraps('v2')
+    def _get_core_log_path(self, volume_dir):
+        return os.path.join(volume_dir, 'core', 'logs')
+
+    @api_version.wraps('v3')
+    def _get_core_log_path(self, volume_dir):
+        return os.path.join(volume_dir, 'core', 'data', 'logs')
 
     def _task_get_component_log_size(self):
         volume_dir = self.jms_config.get('VOLUME_DIR', '/')
@@ -56,7 +65,7 @@ class JmsServiceTask(BaseTask):
         else:
             self.task_result['web_log_size'] = resp
         # 获取Core日志大小
-        core_log = os.path.join(volume_dir, 'core', 'logs')
+        core_log = self._get_core_log_path(volume_dir)
         command = "cd %s;du -sh|awk '{print $1}'" % core_log
         resp, ok = self.do_command(command)
         if not ok:
