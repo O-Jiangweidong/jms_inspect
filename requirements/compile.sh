@@ -34,22 +34,22 @@ install_python_requirement() {
 }
 
 compile() {
-  echo -e "\033[32mStart Compile JumpServer script...\033[0m"
+  echo -e "\033[32mStart compile JumpServer script...\033[0m"
   cd ${project_dir}
   pyinstaller ${project_dir}/main.py --log-level ERROR --hidden-import=redis --clean --distpath ./pkg
   rm -rf ${project_dir}/build
-  echo -e "\033[32mCompile Success...\033[0m"
+  echo -e "\033[32mCompile success...\033[0m"
 }
 
 collect_static() {
-  echo -e "\033[32mStart Collect Static Files...\033[0m"
+  echo -e "\033[32mStart collect static files...\033[0m"
   base_dir=${project_dir}/pkg/main
   task_dir=${base_dir}/package/tasks/
   static_dir=${base_dir}/package/static/
   mkdir -p $task_dir $static_dir
   cp -rf ${project_dir}/package/tasks/* ${task_dir}
   cp -rf ${project_dir}/package/static/* ${static_dir}
-  echo -e "\033[32mCollect Static Files Success...\033[0m"
+  echo -e "\033[32mCollect success...\033[0m"
 }
 
 tar_bin() {
