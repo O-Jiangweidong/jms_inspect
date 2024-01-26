@@ -7,7 +7,6 @@ import sys
 import pymysql
 
 from importlib import import_module
-from datetime import datetime
 
 from package.tasks.base import TaskExecutor, TaskType
 from package.utils.log import logger
@@ -17,6 +16,9 @@ from package.utils.tools import (
 )
 from package.utils.config import Config
 from package.utils.html import HtmlPrinter
+
+# ---------- 不能删除，这里引用之后，才能打包进去 ----------
+# from package.utils import api_version
 
 
 BASE_PATH = os.path.abspath(os.path.dirname(__file__))

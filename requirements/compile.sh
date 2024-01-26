@@ -36,26 +36,23 @@ install_python_requirement() {
 compile() {
   echo -e "\033[32mStart compile JumpServer script...\033[0m"
   cd ${project_dir}
-  pyinstaller ${project_dir}/main.py --log-level ERROR --hidden-import=redis --clean --distpath ./pkg
+  pyinstaller ${project_dir}/main.py -p ${project_dir}/package/ --log-level ERROR --hidden-import=redis --clean --distpath ./pkg
   rm -rf ${project_dir}/build
   echo -e "\033[32mCompile success...\033[0m"
 }
 
 collect_static() {
   echo -e "\033[32mStart collect static files...\033[0m"
-  base_dir=${project_dir}/pkg/main
-  task_dir=${base_dir}/package/tasks/
-  static_dir=${base_dir}/package/static/
-  mkdir -p $task_dir $static_dir
-  cp -rf ${project_dir}/package/tasks/* ${task_dir}
-  cp -rf ${project_dir}/package/static/* ${static_dir}
+  package_dir=${project_dir}/pkg/main/package/
+  mkdir -p $package_dir
+  cp -rf ${project_dir}/package/* ${package_dir}
   echo -e "\033[32mCollect success...\033[0m"
 }
 
 tar_bin() {
   cd ${project_dir}
   tar cf ${project_dir}/jms_inspect.tar jms_inspect_cli pkg
-  # rm -rf pkg && rm -rf jms_inspect_cli
+  rm -rf pkg
   echo ""
   echo -e "\033[32mSuccess...\033[0m"
   echo -e "\033[32mScript path: ↓ ↓ ↓ ↓ ↓\033[0m"
