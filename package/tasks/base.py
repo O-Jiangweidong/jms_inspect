@@ -4,6 +4,7 @@ import time
 import paramiko
 
 from package.utils.log import logger
+from package.utils.tools import get_ssh_client
 from .. import const
 
 
@@ -109,18 +110,13 @@ class TaskExecutor(object):
     def add_tasks(self, tasks):
         for task in tasks:
             if not isinstance(task, BaseTask):
-                raise Exception('任务实例不匹配，请检查代码')
+                raise ValueError('任务实例不匹配，请检查代码')
             self._task_list.append(task)
 
     def get_ssh_client(self):
         if self._ssh_client is None and \
                 all((self._ssh_ip, self._ssh_port, self._ssh_username, self._ssh_password)):
-            ssh_client = paramiko.SSHClient()
-            ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_client.connect(
-                self._ssh_ip, self._ssh_port, self._ssh_username, self._ssh_password
-            )
-            self._ssh_client = ssh_client
+            self._ssh_client = get_ssh_client(self._ssh_ip, self._ssh_port, self._ssh_username, self._ssh_password, 10)
         return self._ssh_client
 
     def task_end(self):

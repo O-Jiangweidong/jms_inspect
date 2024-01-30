@@ -17,8 +17,11 @@ STATIC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 
 
 ZOMBIE_EXIST_ERROR = '节点下存在僵尸进程'
-FIREWALLD_STOP_ERROR = '节点下防火墙未开启'
+FIREWALLD_NOT_ENABLED_WARNING = '节点下防火墙未开启'
 
 CRITICAL = 'critical'
 NORMAL = 'normal'
 SLIGHT = 'slight'
+
+YES = '是'
+NO = '否'

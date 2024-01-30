@@ -1,7 +1,13 @@
 import socket
+import subprocess
+
+import paramiko
 
 from datetime import datetime
 from importlib import import_module
+from paramiko.ssh_exception import SSHException
+
+from package import const
 
 
 def import_string(dotted_path):
@@ -20,15 +26,21 @@ def import_string(dotted_path):
             (module_path, class_name)) from err
 
 
-def is_machine_connect(ip, port, timeout=1):
-    status = True
-    sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sk.settimeout(timeout)
+def get_ssh_client(ip, port, username, password, timeout=1):
+    ssh_client = paramiko.SSHClient()
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        sk.connect((ip, port))
-    except Exception: # noqa
-        status = False
-    return status
+        ssh_client.connect(
+            ip, port, username, password, timeout=timeout
+        )
+    except SSHException:
+        ssh_client = None
+    return ssh_client
+
+
+def is_machine_connect(ip, port, username, password, timeout=1):
+    ssh_client = get_ssh_client(ip, port, username, password, timeout)
+    return False if ssh_client is None else True
 
 
 def get_current_timestamp():
@@ -53,4 +65,18 @@ def boolean(e):
             e = float(e)
         except ValueError:
             pass
-    return '是' if bool(e) else '否'
+    return const.YES if bool(e) else const.NO
+
+
+def local_shell(commands):
+    result = None
+    process = subprocess.Popen(
+        commands, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    output, error = process.communicate()
+    if not error:
+        try:
+            result = output.decode('utf-8').strip()
+        except UnicodeDecodeError:
+            pass
+    return result

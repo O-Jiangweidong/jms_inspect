@@ -196,9 +196,10 @@ class OSInfoTask(BaseTask):
         if not ok:
             self.task_result['firewall_enable'] = TError
         else:
-            self.task_result['firewall_enable'] = boolean(resp)
-            if not boolean(resp):
-                self.set_abnormal_event(const.FIREWALLD_STOP_ERROR, const.CRITICAL)
+            boolean_display = boolean(resp)
+            self.task_result['firewall_enable'] = boolean_display
+            if boolean_display != const.YES:
+                self.set_abnormal_event(const.FIREWALLD_NOT_ENABLED_WARNING, const.CRITICAL)
 
         # 是否开启RSyslog
         firewalld_command = 'systemctl status rsyslog | ' \
@@ -258,6 +259,7 @@ class OSInfoTask(BaseTask):
         if not ok:
             self.task_result['exist_zombie'] = TError
         else:
-            self.task_result['exist_zombie'] = boolean(resp)
-            if boolean(resp):
+            boolean_display = boolean(resp)
+            self.task_result['exist_zombie'] = boolean_display
+            if boolean_display == const.YES:
                 self.set_abnormal_event(const.ZOMBIE_EXIST_ERROR, const.NORMAL)

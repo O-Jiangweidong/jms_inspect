@@ -5,6 +5,7 @@ import re
 import sys
 
 import pymysql
+import redis
 
 from importlib import import_module
 
@@ -12,13 +13,10 @@ from package.tasks.base import TaskExecutor, TaskType
 from package.utils.log import logger
 from package.utils.tableprint import TablePrint
 from package.utils.tools import (
-    is_machine_connect, get_current_datetime_display
+    is_machine_connect, get_current_datetime_display, local_shell
 )
 from package.utils.config import Config
 from package.utils.html import HtmlPrinter
-
-# ---------- 不能删除，这里引用之后，才能打包进去 ----------
-# from package.utils import api_version
 
 
 BASE_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -29,6 +27,7 @@ class JumpServerInspector(object):
         self._table_print = TablePrint()
         self._machine_info_list = []
         self._mysql_client = None
+        self._redis_client = None
         self._report_type = ''
         self._jms_config_path = '/opt/jumpserver/config/config.txt'
         self._machine_config_path = os.path.join(BASE_PATH, 'package', 'static', 'extends', 'demo.csv')
@@ -36,8 +35,22 @@ class JumpServerInspector(object):
         self.jms_config = None
         self.script_config = None
 
+    def __get_mysql_host(self):
+        docker_ip = None
+        db_host = self.jms_config.get('DB_HOST')
+        if db_host == 'mysql':
+            docker_ip = local_shell("docker inspect -f '{{.NetworkSettings.Networks.jms_net.IPAddress}}' jms_mysql")
+        return docker_ip or db_host
+
+    def __get_redis_host(self):
+        docker_ip = None
+        db_host = self.jms_config.get('REDIS_HOST')
+        if db_host == 'redis':
+            docker_ip = local_shell("docker inspect -f '{{.NetworkSettings.Networks.jms_net.IPAddress}}' jms_redis")
+        return docker_ip or db_host
+
     def get_mysql_client(self, get_conn=False):
-        host = self.jms_config.get('DB_HOST')
+        host = self.__get_mysql_host()
         port = self.jms_config.get('DB_PORT')
         user = self.jms_config.get('DB_USER')
         password = self.jms_config.get('DB_PASSWORD')
@@ -46,15 +59,32 @@ class JumpServerInspector(object):
             host=host, port=int(port), user=user, password=password,
             database=database
         )
+        self._mysql_client = connect.cursor()
         if get_conn:
             return connect
-        return connect.cursor()
+        return self._mysql_client
 
     @property
     def mysql_client(self):
         if self._mysql_client is None:
             self._mysql_client = self.get_mysql_client()
         return self._mysql_client
+
+    def get_redis_client(self):
+        host = self.__get_redis_host()
+        port = self.jms_config.get('REDIS_PORT', 6379)
+        password = self.jms_config.get('REDIS_PASSWORD')
+        connect = redis.Redis(
+            host=host, port=int(port), password=password
+        )
+        self._redis_client = connect
+        return self._redis_client
+
+    @property
+    def redis_client(self):
+        if self._redis_client is None:
+            self._redis_client = self.get_redis_client()
+        return self._redis_client
 
     def _check_script_and_jms_config(self):
         """
@@ -94,25 +124,23 @@ class JumpServerInspector(object):
         logger.debug('正在检查模板文件中机器是否合法...')
         ip_re = re.compile(r'((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))')
         unique_set, multiple_name = set(), None
-        valid_machine = 0
         try:
-            with open(self._machine_config_path, encoding='gbk')as f:
+            with open(self._machine_config_path, encoding='gbk') as f:
                 reader = csv.reader(f)
                 # 忽略首行(表头)
                 _ = next(reader)
                 for row in reader:
-                    ip, port = row[2], row[3]
+                    ip, port, username, password = row[2], row[3], row[4], row[5]
                     machine_info = {
                         'name': row[0], 'type': row[1].upper(),
                         'ssh_ip': ip, 'ssh_port': port,
-                        'ssh_username': row[4], 'ssh_password': row[5]
+                        'ssh_username': username, 'ssh_password': password
                     }
 
                     if port.isdigit():
                         port = int(port)
-                    if ip_re.match(ip) and is_machine_connect(ip, port, 3):
+                    if ip_re.match(ip) and is_machine_connect(ip, port, username, password, timeout=3):
                         machine_info['valid'] = True
-                        valid_machine += 1
                     else:
                         machine_info['valid'] = False
                     self._machine_info_list.append(machine_info)
@@ -126,25 +154,38 @@ class JumpServerInspector(object):
         if not self._machine_info_list:
             err_msg = '没有获取到机器信息，请检查此文件内容: %s' % self._machine_config_path
             return False, err_msg
-
         if multiple_name:
             err_msg = '待巡检机器名称重复，名称为: %s' % multiple_name
             return False, err_msg
-        if valid_machine < len(self._machine_info_list):
-            err_msg = '存在不可连接的机器，请检查此文件内容: %s' % self._machine_config_path
-            return True, err_msg
         return True, None
 
-    def _check_tool_is_valid(self):
-        logger.debug('正在检查数据库是否可连接...')
+    def __check_mysql_is_valid(self):
         status, error = True, ''
         try:
             conn = self.get_mysql_client(get_conn=True)
             conn.ping()
         except Exception as err:
-            error = '连接数据库失败: %s' % err
+            error = '连接 MySQL 数据库失败: %s' % err
             status = False
         return status, error
+
+    def __check_redis_is_valid(self):
+        status, error = True, ''
+        try:
+            conn = self.get_redis_client()
+            conn.ping()
+        except Exception as err:
+            error = '连接 Redis 数据库失败: %s' % err
+            status = False
+        return status, error
+
+    def _check_db_is_valid(self):
+        logger.debug('正在检查数据库是否可连接...')
+        status, error = self.__check_mysql_is_valid()
+        if not status:
+            return status, error
+
+        return self.__check_redis_is_valid()
 
     @staticmethod
     def _get_tasks_class():
@@ -190,7 +231,7 @@ class JumpServerInspector(object):
             logger.error(err)
             return False
 
-        ok, err = self._check_tool_is_valid()
+        ok, err = self._check_db_is_valid()
         if not ok:
             logger.error(err)
             return False

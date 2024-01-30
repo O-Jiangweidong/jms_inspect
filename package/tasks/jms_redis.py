@@ -1,5 +1,3 @@
-import redis
-
 from package.utils.log import logger
 from .base import BaseTask, TaskType, TError
 
@@ -13,26 +11,11 @@ class JmsRedisTask(BaseTask):
 
     def __init__(self):
         super().__init__()
-        self._redis_client = None
+        self.redis_client = None
 
     @staticmethod
     def get_do_params():
-        return ['jms_config', 'script_config']
-
-    def get_redis_client(self):
-        host = self.jms_config.get('REDIS_HOST', '127.0.0.1')
-        port = self.jms_config.get('REDIS_PORT', 6379)
-        password = self.jms_config.get('REDIS_PASSWORD')
-        connect = redis.Redis(
-            host=host, port=int(port), password=password
-        )
-        return connect
-
-    @property
-    def redis_client(self):
-        if self._redis_client is None:
-            self._redis_client = self.get_redis_client()
-        return self._redis_client
+        return ['jms_config', 'script_config', 'redis_client']
 
     def set_service_info(self, info):
         self.task_result['redis_version'] = info.get('redis_version', TError)
