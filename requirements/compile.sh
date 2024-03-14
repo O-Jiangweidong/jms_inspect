@@ -51,12 +51,12 @@ collect_static() {
 
 tar_bin() {
   cd ${project_dir}
-  tar cf ${project_dir}/jms_inspect.tar jms_inspect_cli pkg
+  tar -zcf ${project_dir}/jms_inspect.tar.gz jms_inspect_cli pkg
   rm -rf pkg
   echo ""
   echo -e "\033[32mSuccess...\033[0m"
   echo -e "\033[32mScript path: ↓ ↓ ↓ ↓ ↓\033[0m"
-  echo -e "\033[32m${project_dir}/jms_inspect.tar\033[0m"
+  echo -e "\033[32m${project_dir}/jms_inspect.tar.gz\033[0m"
   echo ""
 }
 
@@ -69,6 +69,6 @@ install() {
   compile
   collect_static
   tar_bin
-  }
+}
 
 install

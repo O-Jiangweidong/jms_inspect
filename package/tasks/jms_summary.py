@@ -122,7 +122,7 @@ class JmsSummaryTask(BaseTask):
         sql = "SELECT ROUND(AVG(TIME_TO_SEC(TIMEDIFF(date_end, date_start))), 0) AS duration " \
               "FROM terminal_session WHERE date_start > DATE_SUB(CURDATE(), INTERVAL 3 MONTH)"
         self.mysql_client.execute(sql)
-        res = self.mysql_client.fetchone()[0]
+        res = self.mysql_client.fetchone()
         last_3_month_avg_session_duration = res[0] if res else '0'
         # 近三月工单申请数
         sql = "SELECT COUNT(*) FROM tickets_ticket WHERE date_created > DATE_SUB(CURDATE(), INTERVAL 3 MONTH)"
