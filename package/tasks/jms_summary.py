@@ -50,28 +50,27 @@ class JmsSummaryTask(BaseTask):
               "WHERE status=1 GROUP BY d ORDER BY num DESC LIMIT 1"
         self.mysql_client.execute(sql)
         res = self.mysql_client.fetchone()
-        max_login_count = '%s(%s)' % (res[1], res[0])
+        max_login_count = '%s(%s)' % (res[1], res[0]) if res else '0'
         # 最大单日访问资产数
-        # TODO 没数据记得处理下
         sql = "SELECT DATE(date_start) AS d, COUNT(*) AS num FROM terminal_session " \
               "GROUP BY d ORDER BY num DESC LIMIT 1"
         self.mysql_client.execute(sql)
         res = self.mysql_client.fetchone()
-        max_connect_asset_count = '%s(%s)' % (res[1], res[0])
+        max_connect_asset_count = '%s(%s)' % (res[1], res[0]) if res else '0'
         # 近三月最大单日用户登录数
         sql = "SELECT DATE(datetime) AS d, COUNT(*) AS num FROM audits_userloginlog " \
               "WHERE status=1 AND datetime > DATE_SUB(CURDATE(), INTERVAL 3 MONTH) " \
               "GROUP BY d ORDER BY num DESC LIMIT 1"
         self.mysql_client.execute(sql)
-        self.mysql_client.fetchone()
-        last_3_month_max_login_count = '%s(%s)' % (res[1], res[0])
+        res = self.mysql_client.fetchone()
+        last_3_month_max_login_count = '%s(%s)' % (res[1], res[0]) if res else '0'
         # 近三月最大单日资产登录数
         sql = "SELECT DATE(date_start) AS d, COUNT(*) AS num FROM  terminal_session " \
               "WHERE date_start > DATE_SUB(CURDATE(), INTERVAL 3 MONTH) " \
               "GROUP BY d ORDER BY num DESC LIMIT 1"
         self.mysql_client.execute(sql)
-        self.mysql_client.fetchone()
-        last_3_month_max_connect_asset_count = '%s(%s)' % (res[1], res[0])
+        res = self.mysql_client.fetchone()
+        last_3_month_max_connect_asset_count = '%s(%s)' % (res[1], res[0]) if res else '0'
         # 近一月登录用户数
         sql = "SELECT COUNT(DISTINCT username) FROM audits_userloginlog " \
               "WHERE status=1 AND datetime > DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"
@@ -112,18 +111,19 @@ class JmsSummaryTask(BaseTask):
               "FROM_UNIXTIME(timestamp) > DATE_SUB(CURDATE(), INTERVAL 3 MONTH)"
         self.mysql_client.execute(sql)
         last_3_month_danger_command_count = self.mysql_client.fetchone()[0]
-        # TODO 没数据记得处理
         # 近三月最大会话时长
         sql = "SELECT timediff(date_end, date_start) AS duration from terminal_session " \
               "WHERE date_start > DATE_SUB(CURDATE(), INTERVAL 3 MONTH) " \
               "ORDER BY duration DESC LIMIT 1"
         self.mysql_client.execute(sql)
-        last_3_month_max_session_duration = self.mysql_client.fetchone()[0]
+        res = self.mysql_client.fetchone()
+        last_3_month_max_session_duration = res[0] if res else '0'
         # 近三月平均会话时长
         sql = "SELECT ROUND(AVG(TIME_TO_SEC(TIMEDIFF(date_end, date_start))), 0) AS duration " \
               "FROM terminal_session WHERE date_start > DATE_SUB(CURDATE(), INTERVAL 3 MONTH)"
         self.mysql_client.execute(sql)
-        last_3_month_avg_session_duration = self.mysql_client.fetchone()[0]
+        res = self.mysql_client.fetchone()[0]
+        last_3_month_avg_session_duration = res[0] if res else '0'
         # 近三月工单申请数
         sql = "SELECT COUNT(*) FROM tickets_ticket WHERE date_created > DATE_SUB(CURDATE(), INTERVAL 3 MONTH)"
         self.mysql_client.execute(sql)
