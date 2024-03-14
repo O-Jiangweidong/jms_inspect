@@ -21,9 +21,8 @@ class Config(object):
             config_list = f_reader.readlines()
             for cf in config_list:
                 real_cf = cf.strip()
-                if not real_cf or real_cf.startswith('#'):
-                    continue
-                elif self._prefix and not real_cf.startswith(self._prefix):
+                if not real_cf or real_cf.startswith('#') \
+                        or self._prefix and not real_cf.startswith(self._prefix):
                     continue
                 try:
                     key, value = real_cf.split('=', 1)

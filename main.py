@@ -285,10 +285,12 @@ class JumpServerInspector(object):
 
     @staticmethod
     def _to_pdf(filename: str, content: dict, **kwargs):
+        # 后续计划支持
         pass
 
     @staticmethod
     def _to_excel(filename: str, content: dict, **kwargs):
+        # 后续计划支持
         pass
 
     def _to_all_type(self, filename: str, content: dict, **kwargs):
