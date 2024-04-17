@@ -1,3 +1,7 @@
+
+此项目已经不维护，请跳转到下方的仓库
+https://github.com/O-Jiangweidong/jms_inspect-go
+
 #####################
 使用帮助
 
